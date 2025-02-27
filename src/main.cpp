@@ -36,7 +36,7 @@ const char *password = "motowifi";
 
 const int LED = 0;
 const int touchUP = 1;
-int threshold = 60000;
+int threshold = 40000;
 volatile bool switchState = false; //to store in ram instaead of registers?
 
 
@@ -67,16 +67,11 @@ void initializeDisplay();
 void displayText(const char* text1,int,int);
 float readAndPrintVoltages();
 volatile bool touchTriggered=false;
-void touchUpISR() {
-      Serial.println("ISR Triggered!");
-
-  if(touchRead(touchUP)>threshold)
-    digitalWrite(LED,LOW);
-  else
-    digitalWrite(LED,HIGH);
-  
+// Interrupt Service Routine (ISR) for touch sensing
+void IRAM_ATTR touchISR() {
+  Serial.println("ISR Triggered"); // Debug ISR execution
+  switchState = !switchState; // Toggle LED state
 }
-
 void setup() {
   Serial.begin(115200);
     // Configure GPIO pins
@@ -86,7 +81,7 @@ void setup() {
     Serial.print("Initial Touch Value: ");
     Serial.println(touchRead(touchUP));
   
-    touchAttachInterrupt(touchUP, touchUpISR, threshold);
+    touchAttachInterrupt(touchUP, touchISR, threshold);
 
   // Set ADC attenuation for each pin
   analogSetPinAttenuation(usbPin, ADC_11db);       // 11dB for USB (0V - 3.1V)
@@ -157,13 +152,13 @@ void loop() {
   //   Serial.println("ISR Triggered!");
   // }
   uint8_t i;
-  // Serial.println("touch : "); // Debugging message
-  // Serial.println(touchTriggered); // Read and print the touch sensor value
-
-  // if (touchTriggered) {  
-  //   touchTriggered = false; // Reset flag  
-  //   Serial.println("ISR Executed!"); // Debugging message
-  // }
+  Serial.print("Touch Value: ");
+  Serial.println(touchRead(touchUP));
+  Serial.print("Switch State: ");
+  Serial.println(switchState);
+  
+  digitalWrite(LED, switchState ? HIGH : LOW);
+  delay(500); // Small delay to stabilize readings
 
   if (wifiMulti.run() == WL_CONNECTED) {
     // displayText("Wifi Connected");

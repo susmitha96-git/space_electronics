@@ -68,8 +68,13 @@ void displayText(const char* text1,int,int);
 float readAndPrintVoltages();
 volatile bool touchTriggered=false;
 void touchUpISR() {
-  touchTriggered = true;
-  digitalWrite(LED, !digitalRead(LED)); // Toggle LED
+      Serial.println("ISR Triggered!");
+
+  if(touchRead(touchUP)>threshold)
+    digitalWrite(LED,LOW);
+  else
+    digitalWrite(LED,HIGH);
+  
 }
 
 void setup() {
@@ -145,11 +150,12 @@ void loop() {
   // display.display();
   // Serial.print("Touch Value: ");
   // Serial.println(touchRead(touchUP));
+  // Serial.println(touchRead(touchUP));
 
-  if (touchTriggered) {
-    touchTriggered = false; // Reset flag
-    Serial.println("ISR Triggered!");
-  }
+  // if (touchTriggered) {
+  //   touchTriggered = false; // Reset flag
+  //   Serial.println("ISR Triggered!");
+  // }
   uint8_t i;
   // Serial.println("touch : "); // Debugging message
   // Serial.println(touchTriggered); // Read and print the touch sensor value

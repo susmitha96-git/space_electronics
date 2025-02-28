@@ -38,8 +38,11 @@ const int LED = 0;
 const int touchUP = 1;
 int threshold = 40000;
 volatile bool switchState = false; //to store in ram instaead of registers?
+unsigned long lastTouchTime = 0; // Stores last touch event time
+const int debounceDelay = 500; // Debounce time in milliseconds
 
 
+const int buzzer = 14;
 WiFiServer server(23);
 WiFiClient serverClients[MAX_SRV_CLIENTS];
 
@@ -66,11 +69,15 @@ const float bat_threshold = 3;
 void initializeDisplay();
 void displayText(const char* text1,int,int);
 float readAndPrintVoltages();
-volatile bool touchTriggered=false;
+volatile int mode=0;
+char buffer[20];  // Buffer to hold the formatted string
 // Interrupt Service Routine (ISR) for touch sensing
 void IRAM_ATTR touchISR() {
-  Serial.println("ISR Triggered"); // Debug ISR execution
-  switchState = !switchState; // Toggle LED state
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastTouchTime > debounceDelay) { 
+    switchState = true; // Set flag to process touch in the main loop
+    lastTouchTime = currentMillis;
+  }
 }
 void setup() {
   Serial.begin(115200);
@@ -78,6 +85,7 @@ void setup() {
     pinMode(usbPin, INPUT);
     pinMode(batteryPin, INPUT);
     pinMode(LED, OUTPUT);
+    pinMode(buzzer,OUTPUT);
     Serial.print("Initial Touch Value: ");
     Serial.println(touchRead(touchUP));
   
@@ -141,25 +149,47 @@ void setup() {
 }
 
 void loop() {
-  // display.clearDisplay();
-  // display.display();
-  // Serial.print("Touch Value: ");
-  // Serial.println(touchRead(touchUP));
-  // Serial.println(touchRead(touchUP));
-
-  // if (touchTriggered) {
-  //   touchTriggered = false; // Reset flag
-  //   Serial.println("ISR Triggered!");
-  // }
-  uint8_t i;
+  display.clearDisplay();
+  
   Serial.print("Touch Value: ");
   Serial.println(touchRead(touchUP));
+  
   Serial.print("Switch State: ");
   Serial.println(switchState);
   
-  digitalWrite(LED, switchState ? HIGH : LOW);
-  delay(500); // Small delay to stabilize readings
+  Serial.print("Mode : ");
+  Serial.println(mode);
 
+  // ✅ Handle mode switching here, outside the ISR
+  if (switchState) { 
+    if (mode < 6) mode++;
+    else mode = 0;
+
+    switchState = false; // Reset flag after processing
+
+    Serial.print("New Mode: ");
+    Serial.println(mode);
+    // ✅ Beep the buzzer
+    for(int k=0;k<100;k++){
+    digitalWrite(buzzer, HIGH); // Turn buzzer ON
+    delay(18);                     // Beep duration (100ms)
+    digitalWrite(buzzer, LOW);  // Turn buzzer OFF
+    delay(2);                     // Beep duration (100ms)
+
+    }
+  }
+  // digitalWrite(buzzer,LOW);
+
+  // Update OLED Display
+  sprintf(buffer, "Mode: %d", mode);
+  displayText(buffer, 0, 25);
+
+  // Toggle LED
+  digitalWrite(LED, switchState ? HIGH : LOW);
+  
+  delay(500); // Small delay to stabilize readings
+  uint8_t i;
+ 
   if (wifiMulti.run() == WL_CONNECTED) {
     // displayText("Wifi Connected");
 

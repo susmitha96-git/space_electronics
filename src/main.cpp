@@ -41,6 +41,11 @@ volatile bool switchState = false; //to store in ram instaead of registers?
 unsigned long lastTouchTime = 0; // Stores last touch event time
 const int debounceDelay = 500; // Debounce time in milliseconds
 
+// PWM properties
+const int freq = 2000;     // Frequency in Hz (Adjust for different tones)
+const int pwmChannel = 0;  // PWM channel (0-15 for ESP32)
+const int resolution = 8;  // 8-bit resolution (0-255 duty cycle)
+
 
 const int buzzer = 14;
 WiFiServer server(23);
@@ -85,7 +90,12 @@ void setup() {
     pinMode(usbPin, INPUT);
     pinMode(batteryPin, INPUT);
     pinMode(LED, OUTPUT);
-    pinMode(buzzer,OUTPUT);
+    // pinMode(buzzer,OUTPUT);
+       // Configure the LEDC (PWM) channel
+       ledcSetup(pwmChannel, freq, resolution);
+    
+       // Attach the channel to the GPIO
+       ledcAttachPin(buzzer, pwmChannel);
     Serial.print("Initial Touch Value: ");
     Serial.println(touchRead(touchUP));
   
@@ -160,7 +170,6 @@ void loop() {
   Serial.print("Mode : ");
   Serial.println(mode);
 
-  // ✅ Handle mode switching here, outside the ISR
   if (switchState) { 
     if (mode < 6) mode++;
     else mode = 0;
@@ -169,16 +178,17 @@ void loop() {
 
     Serial.print("New Mode: ");
     Serial.println(mode);
-    // ✅ Beep the buzzer
-    for(int k=0;k<100;k++){
-    digitalWrite(buzzer, HIGH); // Turn buzzer ON
-    delay(18);                     // Beep duration (100ms)
-    digitalWrite(buzzer, LOW);  // Turn buzzer OFF
-    delay(2);                     // Beep duration (100ms)
 
+    // Beep the buzzer as many times as the mode number
+    for (int i = 0; i < mode; i++) {
+        ledcWrite(pwmChannel, 127); // Start buzzer
+        delay(200); // Beep duration
+        ledcWrite(pwmChannel, 0);   // Stop buzzer
+        delay(200); // Pause between beeps
     }
-  }
+}
   // digitalWrite(buzzer,LOW);
+      //  ledcWrite(pwmChannel, 0);
 
   // Update OLED Display
   sprintf(buffer, "Mode: %d", mode);

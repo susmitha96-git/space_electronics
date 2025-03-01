@@ -412,7 +412,7 @@ void loop() {
         serverClients[i].stop();
       }
     }
-    delay(5000);
+    // delay(5000);
   }
   client.loop();
   if (!client.connected()) {
@@ -422,7 +422,7 @@ void loop() {
   Serial.println(mqttPublish);
   String payload = "Berlin, Cyber Base here. The CADSE no. " + String(mqttBoardId) + " has landed!";
   client.publish(mqttPublish.c_str(), payload.c_str());
-  delay(10000);
+  delay(1000);
 }
 
 /**

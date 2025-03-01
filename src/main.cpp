@@ -93,6 +93,9 @@ volatile bool switchState = false; //to store in ram instaead of registers?
 unsigned long lastTouchTime = 0; // Stores last touch event time
 const int debounceDelay = 500; // Debounce time in milliseconds
 
+volatile bool tcReceived = false; // Set to true when a telecommand is received
+volatile int newMode = -1;       // Shared variable to store the new mode from MQTT or touch
+
 // PWM properties
 const int freq = 2000;     // Frequency in Hz (Adjust for different tones)
 const int pwmChannel = 0;  // PWM channel (0-15 for ESP32)
@@ -182,8 +185,22 @@ void mqttCallback(char* topic, byte *payload, unsigned int length) {
   Serial.print("      COM CHANNEL: ");
   Serial.println(topic);
   Serial.print("      UPLINK DATA: ");
-  Serial.write(payload, length); // TODO add example converting payload to String
-  Serial.println();
+ // Convert payload to a string
+ String message;
+ for (int i = 0; i < length; i++) {
+   message += (char)payload[i];
+ }
+ Serial.println(message);
+
+ // Check if the message is a valid number between 0 and 6
+ if (message.length() == 1 && message[0] >= '0' && message[0] <= '6') {
+   newMode = message.toInt(); // Update the shared variable
+   tcReceived = true;         // Set flag to indicate telecommand received
+   Serial.print("New mode received via telecommand: ");
+   Serial.println(newMode);
+ } else {
+   Serial.println("Invalid mode command. Expected a number between 0 and 6.");
+ }
 }
 
 /*
@@ -316,12 +333,17 @@ void loop() {
   Serial.print("Mode : ");
   Serial.println(mode);
 
-  if (switchState) { 
+  if (switchState or tcReceived) { 
+    if(switchState){
     if (mode < 6) mode++;
     else mode = 0;
 
     switchState = false; // Reset flag after processing
-
+  }
+  if(tcReceived){
+    mode = newMode;
+    tcReceived=false;
+  }
     Serial.print("New Mode: ");
     Serial.println(mode);
 

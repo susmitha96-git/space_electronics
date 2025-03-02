@@ -30,6 +30,14 @@
 #include <PubSubClient.h>     // MQTT client library
 #include <esp_wpa2.h>         // WPA2 library for enterprise networks like Eduroam
 #include "arduino_secrets.h"
+#include <Adafruit_LSM6DS3TRC.h>
+#include <Mode0.h>
+#include <Mode1.h>
+#include <Mode2.h>
+#include <Mode3.h>
+#include <Mode4.h>
+#include <Mode5.h>
+#include <Utils.h>
 
 WiFiMulti wifiMulti;
 // Load settings, TODO see arduino_secrets.h.template
@@ -233,8 +241,67 @@ void mqttConnect() {
     }
   }
 }
+
+// #define LSM6DS3_CS 10  // Chip Select Pin
+// #define LSM6DS3_WHO_AM_I 0x0F
+// #define LSM6DS3_CTRL1_XL 0x10
+// #define LSM6DS3_CTRL2_G 0x11
+// #define LSM6DS3_STATUS_REG 0x1E
+// #define LSM6DS3_OUTX_L_G 0x22  // Gyro X-axis low byte
+// #define LSM6DS3_OUTX_L_XL 0x28 // Accel X-axis low byte
+// #define LSM_SCK 12
+// #define LSM_MISO 13
+// #define LSM_MOSI 11
+
+#define LSM6DS3_CS 10  // Chip Select Pin
+#define LSM6DS3_WHO_AM_I 0x0F
+#define LSM6DS3_CTRL1_XL 0x10
+#define LSM6DS3_CTRL2_G 0x11
+#define LSM6DS3_STATUS_REG 0x1E
+#define LSM6DS3_OUTX_L_G 0x22  // Gyro X-axis low byte
+#define LSM6DS3_OUTX_L_XL 0x28 // Accel X-axis low byte
+#define LSM_SCK 12
+#define LSM_MISO 13
+#define LSM_MOSI 11
+void writeRegister(uint8_t reg, uint8_t value) {
+    digitalWrite(LSM6DS3_CS, LOW);
+    SPI_LSM.transfer(reg & 0x7F);  // Write operation
+    SPI_LSM.transfer(value);
+    digitalWrite(LSM6DS3_CS, HIGH);
+}
+
+uint8_t readRegister(uint8_t reg) {
+    digitalWrite(LSM6DS3_CS, LOW);
+    SPI_LSM.transfer(reg | 0x80);  // Read operation
+    uint8_t value = SPI_LSM.transfer(0x00);
+    digitalWrite(LSM6DS3_CS, HIGH);
+    return value;
+}
+
+// void readData(uint8_t reg, uint8_t *buffer, uint8_t length) {
+//     digitalWrite(LSM6DS3_CS, LOW);
+//     SPI_LSM.transfer(reg | 0x80);
+//     for (uint8_t i = 0; i < length; i++) {
+//         buffer[i] = SPI_LSM.transfer(0x00);
+//     }
+//     digitalWrite(LSM6DS3_CS, HIGH);
+// }
+
 void setup() {
   Serial.begin(115200);
+  SPI_LSM.begin(LSM_SCK, LSM_MISO, LSM_MOSI, LSM6DS3_CS);  // SCK, MISO, MOSI, CS
+  pinMode(LSM6DS3_CS, OUTPUT);
+  digitalWrite(LSM6DS3_CS, HIGH);
+
+  uint8_t who_am_i = readRegister(LSM6DS3_WHO_AM_I);
+  Serial.print("WHO_AM_I: 0x");
+  Serial.println(who_am_i, HEX);
+
+  // Configure Accelerometer: 104Hz, 2g, BW=50Hz
+  writeRegister(LSM6DS3_CTRL1_XL, 0x40);
+  
+  // Configure Gyroscope: 104Hz, 250 dps
+  writeRegister(LSM6DS3_CTRL2_G, 0x40);
     // Configure GPIO pins
     pinMode(usbPin, INPUT);
     pinMode(batteryPin, INPUT);
@@ -318,12 +385,13 @@ void setup() {
   client.setServer(mqttBroker, mqttPort);
   client.setCallback(mqttCallback);
   mqttConnect();
-
+  
 }
 
 void loop() {
   display.clearDisplay();
-  
+  mode0();
+  // mode2();
   Serial.print("Touch Value: ");
   Serial.println(touchRead(touchUP));
   
